@@ -1,0 +1,23 @@
+BetterBitrix userscript
+Version: 2.3.0
+
+Included:
+- BetterBitrix name in Tampermonkey and the main panel header;
+- icon-only gear button opens and closes settings;
+- automatic updates through GitHub Pages and Tampermonkey metadata URLs;
+- Start / Pause / Continue / Finish workday timer;
+- timer is shown directly on the Finish button;
+- smaller movable panel with a persistent compact mode;
+- icon-only quick action records eight hours without starting the timer;
+- timer and quick action share the same daily lock;
+- per-user day boundary follows browser or selected IANA time zone;
+- calendar icon lists today's accepted events containing Zoom or Teams links in DESCRIPTION;
+- daily-call icon opens a locally configured Zoom or Teams URL;
+- meeting time is copied from Bitrix DATE_FROM/DATE_TO without timezone conversion;
+- meeting day follows the Bitrix calendar time zone and events are filtered to that exact date;
+- meetings are sorted by the displayed Bitrix start time rather than UTC timestamps;
+- actual elapsed time is recorded into the locked task;
+- timer, default task and movable panel persist across reloads;
+- compatible version 1 profiles migrate automatically;
+- duplicate and uncertain-result protections remain enabled;
+- neutral time-entry comment: "Работа над проектом".
