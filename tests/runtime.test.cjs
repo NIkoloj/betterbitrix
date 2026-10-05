@@ -3,7 +3,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
 const C=require('../BetterBitrix.user.js');
-const source=fs.readFileSync(require.resolve('../BetterBitrix.user.js'),'utf8').replace(/\}\)\(\);\s*$/, 'globalThis.__testRuntime={addDay,armLearning,journal,identity,claim,resolvePending,startWorkDay,togglePause,finishWorkDay,timerState,timerElapsedMs,formatClock,workDay,timeZoneFor};})();');
+const source=fs.readFileSync(require.resolve('../BetterBitrix.user.js'),'utf8').replace(/\}\)\(\);\s*$/, 'globalThis.__testRuntime={addDay,armLearning,journal,identity,claim,resolvePending,startWorkDay,togglePause,finishWorkDay,timerState,timerElapsedMs,formatClock,workDay,timeZoneFor,loadMeetings,renderMeetings,showAllMeetings,getMeetingsState:()=>meetingsState,setMeetingsUI:value=>{ui=value;}};})();');
 const prefix='b24-eight-hours-v1:';
 const origin='https://b24.entgld.com';
 const shared=()=>({store:new Map(),locks:new Set(),calls:[],fetch:async()=>({ok:true,status:200,json:async()=>({status:'success',data:{id:891},errors:[]})})});
@@ -21,6 +21,64 @@ function seed(s){
 }
 function journal(s){return JSON.parse(s.store.get(prefix+'1178:journal') || '{}');}
 function deferred(){let resolve;const promise=new Promise(r=>resolve=r);return {promise,resolve};}
+function meetingsUI(r){
+ const element=()=>({children:[],hidden:false,textContent:'',disabled:false,append(...items){this.children.push(...items);},replaceChildren(...items){this.children=items;}});
+ r.document.createElement=element;
+ const ui={meetingsList:element(),meetingsStatus:element()};
+ r.__testRuntime.setMeetingsUI(ui);return ui;
+}
+function calendarFixture(s,uid=1178){
+ const r=runtime(s,uid),calls=[],date=C.day(),yesterday=C.day(new Date(Date.now()-86400000));
+ const event=(NAME,time,extra={})=>({NAME,DATE_FROM:`${date} ${time}:00`,DATE_TO:`${date} ${time}:00`,MEETING_STATUS:'Y',...extra});
+ r.window.BX.rest={callMethod(method,params,done){
+  calls.push({method,params});
+  done({data:()=>method==='calendar.user.settings.get' ? {timezoneName:'Europe/Moscow'} : [
+   event('Zoom','11:00',{DESCRIPTION:'[url=https://zoom.us/j/123]Подключиться[/url]'}),
+   event('Без ссылки','09:00'),
+   event('Другая ссылка','10:00',{DESCRIPTION:'<a href="https://example.com/">Открыть</a>'}),
+   event('Teams','12:00',{'~DESCRIPTION':'&lt;a href=&quot;https://teams.live.com/meet/123&quot;&gt;Подключиться&lt;/a&gt;'}),
+   event('Отклонён','08:00',{MEETING_STATUS:'N'}),
+   event('Вчера','07:00',{DATE_FROM:`${yesterday} 07:00:00`,DESCRIPTION:'https://zoom.us/j/999'})
+  ]});
+ }};
+ return {r,calls};
+}
+test('calendar defaults to linked calls and renders all today events as disabled when enabled',async()=>{
+ const s=shared(),{r,calls}=calendarFixture(s);await r.__testRuntime.loadMeetings();
+ const ui=meetingsUI(r);r.__testRuntime.renderMeetings();
+ const names=()=>ui.meetingsList.children.map(button=>button.children[1].textContent);
+ assert.deepEqual(names(),['Zoom','Teams']);
+ assert.equal(r.__testRuntime.getMeetingsState().items.length,4);
+ s.store.set(prefix+'1178:showAllMeetings','true');r.__testRuntime.renderMeetings();
+ assert.deepEqual(names(),['Без ссылки','Другая ссылка','Zoom','Teams']);
+ const [missing,unsupported,zoom,teams]=ui.meetingsList.children;
+ for(const button of [missing,unsupported]){assert.equal(button.disabled,true);assert.equal(button.onclick,undefined);assert.equal(button.children[0].children[1].textContent,'Без ссылки');}
+ const opened=[];r.window.open=(...args)=>opened.push(args);zoom.onclick();teams.onclick();
+ assert.equal(zoom.disabled,false);assert.equal(teams.disabled,false);
+ assert.deepEqual(opened,[['https://zoom.us/j/123','_blank','noopener'],['https://teams.live.com/meet/123','_blank','noopener']]);
+ await r.__testRuntime.loadMeetings();assert.equal(calls.filter(call=>call.method==='calendar.event.get').length,1);
+ s.store.set(prefix+'1178:showAllMeetings','false');r.__testRuntime.renderMeetings();assert.deepEqual(names(),['Zoom','Teams']);
+});
+test('show-all preference survives reload and is stored separately for each account',()=>{
+ const s=shared();s.store.set(prefix+'1178:showAllMeetings','true');
+ assert.equal(runtime(s).__testRuntime.showAllMeetings(),true);
+ assert.equal(runtime(s,999).__testRuntime.showAllMeetings(),false);
+});
+test('a preference changed while loading also applies to the received calendar',async()=>{
+ const s=shared(),{r}=calendarFixture(s),original=r.window.BX.rest.callMethod,wait=deferred();
+ r.window.BX.rest.callMethod=(method,params,done)=>{if(method==='calendar.event.get')void wait.promise.then(()=>original(method,params,done));else original(method,params,done);};
+ const loading=r.__testRuntime.loadMeetings();await new Promise(resolve=>setImmediate(resolve));
+ s.store.set(prefix+'1178:showAllMeetings','true');const ui=meetingsUI(r);wait.resolve();await loading;
+ assert.equal(ui.meetingsList.children.length,4);assert.equal(ui.meetingsList.children[0].disabled,true);
+});
+test('empty calendar and REST failures show the appropriate status',async()=>{
+ const s=shared(),r=runtime(s),ui=meetingsUI(r);
+ r.window.BX.rest={callMethod(method,params,done){done({data:()=>method==='calendar.user.settings.get' ? {timezoneName:'Europe/Moscow'} : []});}};
+ await r.__testRuntime.loadMeetings();assert.match(ui.meetingsStatus.textContent,/нет событий со ссылкой/);
+ s.store.set(prefix+'1178:showAllMeetings','true');r.__testRuntime.renderMeetings();assert.equal(ui.meetingsStatus.textContent,'На сегодня нет событий в календаре.');
+ r.window.BX.rest.callMethod=(method,params,done)=>done({error:()=> 'access denied'});
+ await r.__testRuntime.loadMeetings(true);assert.equal(r.__testRuntime.getMeetingsState().status,'error');assert.match(ui.meetingsStatus.textContent,/Не удалось загрузить календарь: access denied/);
+});
 test('double click sends exactly one request',async()=>{
  const s=shared();seed(s);const wait=deferred();s.fetch=async()=>{await wait.promise;return {ok:true,status:200,json:async()=>({data:{id:891},errors:[]})}};
  const t=runtime(s);const first=t.__testRuntime.addDay();await t.__testRuntime.addDay();assert.equal(s.calls.length,1);wait.resolve();await first;assert.equal(journal(s)[C.day()].status,'done');

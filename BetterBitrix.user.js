@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BetterBitrix
 // @namespace    local.bitrix-eight-hours
-// @version      2.3.0
+// @version      2.3.1
 // @description  Рабочий таймер, быстрые 8 часов и ссылки на созвоны из календаря Bitrix.
 // @homepageURL  https://nikoloj.github.io/betterbitrix/
 // @supportURL   https://github.com/NIkoloj/betterbitrix/issues
@@ -240,9 +240,17 @@
     next.version=2;
     return next;
   }
+  function decodeLinkEntities(value) {
+    const named={amp:'&',quot:'"',apos:"'",lt:'<',gt:'>',nbsp:'\u00a0',colon:':',sol:'/'};
+    return value.replace(/&(#x[0-9a-f]+|#\d+|amp|quot|apos|lt|gt|nbsp|colon|sol);/gi,(entity,name)=>{
+      if(name[0]!=='#') return named[name.toLowerCase()];
+      const code=name[1].toLowerCase()==='x' ? parseInt(name.slice(2),16) : Number(name.slice(1));
+      return code>0 && code<=0x10ffff && !(code>=0xd800 && code<=0xdfff) ? String.fromCodePoint(code) : entity;
+    });
+  }
   function safeCallUrl(value) {
     if(typeof value!=='string') return null;
-    const decoded=value.replaceAll('&amp;','&').replaceAll('&#38;','&').replaceAll('&quot;','"');
+    const decoded=decodeLinkEntities(value);
     let url; try { url=new URL(decoded); } catch { return null; }
     if(url.protocol!=='https:' || url.username || url.password) return null;
     const host=url.hostname.toLowerCase();
@@ -258,11 +266,24 @@
     };
     collect(value);
     const links=new Set();
+    const add=value=>{ const safe=safeCallUrl(value.trim()); if(safe) links.add(safe); };
     for(const source of strings) {
-      const decoded=source.replaceAll('&amp;','&').replaceAll('&#38;','&').replaceAll('&quot;','"');
-      for(const match of decoded.matchAll(/https:\/\/[^\s<>"']+/gi)) {
+      // Read hyperlink targets instead of their visible labels. Bitrix may return
+      // HTML, escaped HTML or BBCode in either description field.
+      const text=decodeLinkEntities(source)
+        .replace(/<a\b((?:"[^"]*"|'[^']*'|[^'">])*)>[\s\S]*?<\/a\s*>/gi,(_,attributes)=>{
+          const href=[...attributes.matchAll(/(?:^|\s)([^\s=]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'<>`]+))/g)]
+            .find(attribute=>attribute[1].toLowerCase()==='href');
+          if(href) add(href[2] ?? href[3] ?? href[4]);
+          return ' ';
+        })
+        .replace(/\[url(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\]]*)))?\]([\s\S]*?)\[\/url\]/gi,(_,doubleQuoted,singleQuoted,unquoted,label)=>{
+          add(doubleQuoted ?? singleQuoted ?? unquoted ?? label);
+          return ' ';
+        });
+      for(const match of text.matchAll(/https:\/\/[^\s<>"'\[\]]+/gi)) {
         const candidate=match[0].replace(/[),.;\]}]+$/,'');
-        const safe=safeCallUrl(candidate); if(safe) links.add(safe);
+        add(candidate);
       }
     }
     return [...links];
@@ -332,6 +353,7 @@
     return null; // URL user ID is not proof of the logged-in identity.
   }
   const keyFor=(name,uid=identity())=>`${uid}:${name}`;
+  const showAllMeetings=(uid=identity())=>!!uid && read(keyFor('showAllMeetings',uid))===true;
   function validTimeZone(value) {
     return isValidTimeZone(value);
   }
@@ -379,16 +401,19 @@
     ui.meetingsStatus.hidden=false;
     if(meetingsState.status==='loading') { ui.meetingsStatus.textContent='Загружаю календарь…'; return; }
     if(meetingsState.status==='error') { ui.meetingsStatus.textContent=meetingsState.error; return; }
-    if(!meetingsState.items.length) { ui.meetingsStatus.textContent='На сегодня нет событий со ссылкой Zoom или Teams в описании.'; return; }
+    const showAll=showAllMeetings(),items=meetingsState.items.filter(meeting=>meeting.url || showAll);
+    if(!items.length) { ui.meetingsStatus.textContent=showAll ? 'На сегодня нет событий в календаре.' : 'На сегодня нет событий со ссылкой Zoom или Teams в описании.'; return; }
     ui.meetingsStatus.hidden=true;
-    for(const meeting of meetingsState.items) {
+    for(const meeting of items) {
       const button=document.createElement('button'); button.className='meeting-item'; button.type='button';
       const top=document.createElement('span'); top.className='meeting-top';
       const time=document.createElement('span'); time.className='meeting-time'; time.textContent=meeting.time;
       const provider=document.createElement('span'); provider.className='meeting-provider'; provider.textContent=meeting.provider;
       const name=document.createElement('span'); name.className='meeting-name'; name.textContent=meeting.name;
       top.append(time,provider); button.append(top,name);
-      button.onclick=()=>window.open(meeting.url,'_blank','noopener');
+      button.disabled=!meeting.url;
+      button.title=meeting.url ? 'Открыть созвон' : 'В описании нет ссылки Zoom или Teams';
+      if(meeting.url) button.onclick=()=>window.open(meeting.url,'_blank','noopener');
       ui.meetingsList.append(button);
     }
   }
@@ -408,14 +433,14 @@
       for(const event of events) {
         if(String(event?.MEETING_STATUS).toUpperCase()==='N') continue;
         if(!calendarEventOnDay(event,date,context)) continue;
-        const url=callLinks([event?.DESCRIPTION,event?.['~DESCRIPTION']])[0]; if(!url) continue;
+        const url=callLinks([event?.DESCRIPTION,event?.['~DESCRIPTION']])[0] || null;
         const start=calendarEventMinutes(event);
-        items.push({name:String(event?.NAME || 'Созвон'),time:calendarEventTime(event),provider:new URL(url).hostname.includes('zoom') ? 'Zoom' : 'Teams',url,start});
+        items.push({name:String(event?.NAME || 'Созвон'),time:calendarEventTime(event),provider:url ? (new URL(url).hostname.includes('zoom') ? 'Zoom' : 'Teams') : 'Без ссылки',url,start});
       }
       items.sort((a,b)=>a.start-b.start || a.name.localeCompare(b.name,'ru'));
       meetingsState={key,status:'ready',items,error:''}; renderMeetings();
     } catch(problem) {
-      meetingsState={key,status:'error',items:[],error:`Не удалось загрузить календарь: ${problem?.message || problem}`}; renderMeetings();
+      meetingsState={key:meetingsState.key,status:'error',items:[],error:`Не удалось загрузить календарь: ${problem?.message || problem}`}; renderMeetings();
     }
   }
   const journal=(uid=identity())=>read(keyFor('journal',uid)) || {};
@@ -769,6 +794,8 @@
     ui.daily.disabled=!uid;
     ui.daily.title=dailyUrl ? 'Открыть дейлик' : 'Настроить ссылку на дейлик';
     ui.daily.classList.toggle('active',!!dailyUrl);
+    ui.showAllMeetings.checked=showAllMeetings(uid);
+    ui.showAllMeetings.disabled=!uid;
     ui.meetingsToggle.classList.toggle('active',!ui.meetingsPane.hidden);
   }
   function mount() {
@@ -793,6 +820,7 @@
       .meetings{margin-top:9px;padding:9px;background:#f7f9fb;border:1px solid #e1e7ed;border-radius:9px}.meetings-head{display:flex;align-items:center;justify-content:space-between;font-weight:700}.meetings-head button{padding:3px 7px}.meetings-status{font-size:11px;line-height:1.4;color:#687789;margin-top:7px}.meetings-list{display:grid;gap:6px;margin-top:7px}.meeting-item{width:100%;text-align:left;background:#fff;padding:8px}.meeting-top{display:flex;justify-content:space-between;gap:8px;color:#617184;font-size:11px}.meeting-time{font-variant-numeric:tabular-nums;font-weight:700;color:#26394c}.meeting-provider{color:#0876c7}.meeting-name{display:block;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
       .settings{border-top:1px solid #e4e9ef;margin-top:12px;padding-top:5px}.chosen{line-height:1.4;overflow-wrap:anywhere;color:#42546a;margin:7px 0}
       input,select{font:inherit;width:100%;padding:9px;border:1px solid #cbd4df;border-radius:7px;margin-top:7px;background:#fff;color:#19202b}select{max-width:100%}.field-label{display:block;margin-top:10px;font-weight:700;color:#42546a}
+      .checkbox-label{display:flex;align-items:center;gap:7px;margin-top:10px;color:#42546a;line-height:1.4}.checkbox-label input{width:auto;margin:0}.meeting-item:disabled{opacity:.65;background:#f5f7fa}.meeting-item:disabled .meeting-provider{color:#687789}
       .row{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}.hint{font-size:11px;line-height:1.45;color:#718091;margin-top:8px}.resolve{padding:8px 0 2px}[hidden]{display:none!important}
     </style><section class="panel" id="panel" aria-label="Таймер рабочего дня Bitrix">
       <header id="dragHandle" title="Перетащи панель в удобное место">
@@ -814,6 +842,7 @@
         <label class="field-label" for="timeZone">Часовой пояс рабочего дня</label>
         <select id="timeZone" aria-label="Часовой пояс рабочего дня"><option value="auto">Автоматически — по браузеру</option><option value="UTC">UTC</option><option value="Europe/London">Europe/London</option><option value="Europe/Berlin">Europe/Berlin</option><option value="Europe/Helsinki">Europe/Helsinki</option><option value="Europe/Kaliningrad">Europe/Kaliningrad</option><option value="Europe/Moscow">Europe/Moscow</option><option value="Europe/Samara">Europe/Samara</option><option value="Asia/Yekaterinburg">Asia/Yekaterinburg</option><option value="Asia/Omsk">Asia/Omsk</option><option value="Asia/Krasnoyarsk">Asia/Krasnoyarsk</option><option value="Asia/Irkutsk">Asia/Irkutsk</option><option value="Asia/Yakutsk">Asia/Yakutsk</option><option value="Asia/Vladivostok">Asia/Vladivostok</option><option value="Asia/Magadan">Asia/Magadan</option><option value="Asia/Kamchatka">Asia/Kamchatka</option><option value="Asia/Dubai">Asia/Dubai</option><option value="Asia/Tbilisi">Asia/Tbilisi</option><option value="Asia/Almaty">Asia/Almaty</option><option value="Asia/Tashkent">Asia/Tashkent</option><option value="America/New_York">America/New_York</option><option value="America/Los_Angeles">America/Los_Angeles</option></select>
         <div class="hint" id="zoneHint"></div>
+        <label class="checkbox-label"><input id="showAllMeetings" type="checkbox">Показывать все сегодняшние звонки</label><div class="hint">Показывает все события календаря на сегодня. События без ссылки Zoom или Teams нельзя открыть.</div>
         <label class="field-label" for="dailyUrl">Ссылка на дейлик</label><input id="dailyUrl" type="url" inputmode="url" placeholder="https://…zoom.us/j/…" aria-label="Ссылка на дейлик Zoom или Teams"><div class="hint">Сохраняется только в этом браузере. После вставки нажми Enter или кликни вне поля.</div>
         <div class="row"><button id="configure">Настроить Bitrix</button><button id="cancel" hidden>Отменить настройку</button><button id="resetPosition">Сбросить позицию</button></div>
         <div class="hint">Если старая настройка сохранилась, заново настраивать ничего не нужно. Иначе один раз сохрани через штатную форму 8 часов с комментарием «${MARKER}» — скрипт запомнит формат записи.</div>
@@ -904,6 +933,11 @@
       ui.dailyUrl.value=safe;write(keyFor('dailyUrl',uid),safe);note('Ссылка на дейлик сохранена.');
     };
     ui.dailyUrl.onkeydown=event=>{if(event.key==='Enter'){event.preventDefault();ui.dailyUrl.blur();}};
+    ui.showAllMeetings.onchange=()=>{
+      const uid=identity(); if(!uid) return;
+      write(keyFor('showAllMeetings',uid),ui.showAllMeetings.checked);
+      renderMeetings();
+    };
     ui.select.onchange=()=>{
       const task=taskCache.find(task=>String(task.id)===ui.select.value) || selected();
       if (ui.select.value && task) write(keyFor('selected'),task); else remove(keyFor('selected'));
@@ -918,7 +952,7 @@
     if(layout.compact && !pending()) setCompact(true,false);
   }
   window.addEventListener('storage',event=>{
-    if(event.key?.startsWith(PREFIX)) { const uid=identity();if(uid){taskCache=read(keyFor('tasks'))||[];refreshTasks();}refresh(); }
+    if(event.key?.startsWith(PREFIX)) { const uid=identity();if(uid){taskCache=read(keyFor('tasks'))||[];refreshTasks();}refresh();if(event.key===PREFIX+keyFor('showAllMeetings',uid)) renderMeetings(); }
   });
   document.addEventListener('DOMContentLoaded',mount,{once:true});
   const timer=setInterval(()=>{

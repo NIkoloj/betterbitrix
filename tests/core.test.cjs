@@ -87,6 +87,38 @@ test('only HTTPS Zoom and Teams links are accepted from event descriptions',()=>
  const links=C.callLinks({DESCRIPTION:'Join <a href="https://company.zoom.us/j/123?pwd=a&amp;b=2">call</a>'});
  assert.equal(links.length,1);assert.match(links[0],/pwd=a&b=2/);
 });
+test('HTML hyperlink targets work with quotes, escaped markup and numeric entities',()=>{
+ const expected='https://company.zoom.us/j/123?pwd=a&b=2';
+ for(const description of [
+  '<a class="join" title="Время > 10:00" href="https://company.zoom.us/j/123?pwd=a&amp;b=2">Подключиться</a>',
+  "<A HREF='https://company.zoom.us/j/123?pwd=a&#x26;b=2'>Подключиться</A>",
+  '<a href=https://company.zoom.us/j/123?pwd=a&#38;b=2 target=_blank>Подключиться</a>',
+  '&lt;a href=&quot;https://company.zoom.us/j/123?pwd=a&amp;amp;b=2&quot;&gt;Подключиться&lt;/a&gt;',
+  '&#60;a href=&#34;https&#58;&#47;&#47;company.zoom.us/j/123?pwd=a&#38;b=2&#34;&#62;Подключиться&#60;/a&#62;'
+ ]) assert.deepEqual(C.callLinks(description),[expected]);
+});
+test('BBCode hyperlinks return their target without markup or label text',()=>{
+ const zoom='https://zoom.us/j/123?pwd=abc',teams='https://teams.microsoft.com/l/meetup-join/abc?context=a&b=2';
+ for(const description of [
+  `[URL=${zoom}]Подключиться[/URL]`,
+  `[url="${zoom}"]Подключиться[/url]`,
+  `[url='${zoom}']Подключиться[/url]`,
+  `[url]${zoom}[/url]`
+ ]) assert.deepEqual(C.callLinks(description),[zoom]);
+ assert.deepEqual(C.callLinks({DESCRIPTION:`[url=${teams.replace('&','&amp;')}]Teams[/url]`,'~DESCRIPTION':teams}),[teams]);
+ assert.deepEqual(C.callLinks(`[b]${zoom}[/b]`),[zoom]);
+});
+test('hyperlink labels cannot substitute a different or unsafe target',()=>{
+ const expected='https://teams.live.com/meet/123';
+ assert.deepEqual(C.callLinks(`<a title=" href='https://zoom.us/j/999' " href="${expected}">Подключиться</a>`),[expected]);
+ assert.deepEqual(C.callLinks(`<https://zoom.us/j/123>`),['https://zoom.us/j/123']);
+ assert.deepEqual(C.callLinks(`<a href="${expected}">https://zoom.us/j/999</a>`),[expected]);
+ assert.deepEqual(C.callLinks(`[url=${expected}]https://zoom.us/j/999[/url]`),[expected]);
+ for(const target of ['javascript:alert(1)','http://zoom.us/j/123','https://zoom.us.evil.test/j/123','https://user:pass@zoom.us/j/123']) {
+  assert.deepEqual(C.callLinks(`<a href="${target}">https://zoom.us/j/999</a>`),[]);
+  assert.deepEqual(C.callLinks(`[url=${target}]https://zoom.us/j/999[/url]`),[]);
+ }
+});
 test('meeting time is copied from Bitrix calendar strings without timezone conversion',()=>{
  assert.equal(C.calendarEventTime({DATE_FROM:'02.10.2026 09:15:00',DATE_TO:'02.10.2026 10:00:00',DATE_FROM_TS_UTC:'1'}),'09:15–10:00');
  assert.equal(C.calendarEventTime({DATE_FROM:'10/02/2026 05:30:00 pm',DATE_TO:'10/02/2026 06:15:00 pm'}),'05:30 PM–06:15 PM');
@@ -106,7 +138,7 @@ test('meetings sort by the clock shown by Bitrix instead of UTC timestamp',()=>{
 });
 test('compact UI keeps timer on the main button and exposes collapse control',()=>{
  const source=fs.readFileSync(require.resolve('../BetterBitrix.user.js'),'utf8');
- assert.match(source,/@name\s+BetterBitrix/);assert.match(source,/@version\s+2\.3\.0/);assert.match(source,/<span class="title">BetterBitrix<\/span>/);
+ assert.match(source,/@name\s+BetterBitrix/);assert.match(source,/@version\s+2\.3\.1/);assert.match(source,/<span class="title">BetterBitrix<\/span>/);
  assert.match(source,/@updateURL\s+https:\/\/nikoloj\.github\.io\/betterbitrix\/BetterBitrix\.meta\.js/);
  assert.match(source,/@downloadURL\s+https:\/\/nikoloj\.github\.io\/betterbitrix\/BetterBitrix\.user\.js/);
  assert.match(source,/id="collapse"/);assert.match(source,/ui\.collapse\.onclick/);

@@ -1,5 +1,5 @@
 BetterBitrix userscript
-Version: 2.3.0
+Version: 2.3.1
 
 Included:
 - BetterBitrix name in Tampermonkey and the main panel header;
@@ -12,6 +12,8 @@ Included:
 - timer and quick action share the same daily lock;
 - per-user day boundary follows browser or selected IANA time zone;
 - calendar icon lists today's accepted events containing Zoom or Teams links in DESCRIPTION;
+- call links are extracted from HTML hyperlinks, escaped HTML and BBCode, including ~DESCRIPTION;
+- per-user setting can show all today's calendar events, with disabled rows for events without a supported link;
 - daily-call icon opens a locally configured Zoom or Teams URL;
 - meeting time is copied from Bitrix DATE_FROM/DATE_TO without timezone conversion;
 - meeting day follows the Bitrix calendar time zone and events are filtered to that exact date;
