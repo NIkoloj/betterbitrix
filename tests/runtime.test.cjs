@@ -7,11 +7,12 @@ const source=fs.readFileSync(require.resolve('../BetterBitrix.user.js'),'utf8').
 const prefix='b24-eight-hours-v1:';
 const origin='https://b24.entgld.com';
 const shared=()=>({store:new Map(),locks:new Set(),calls:[],fetch:async()=>({ok:true,status:200,json:async()=>({status:'success',data:{id:891},errors:[]})})});
-function runtime(s,uid=1178){
+function runtime(s,uid=1178,Clock=Date){
  class XHR {open(){}send(){}setRequestHeader(){}addEventListener(){}}
  const listeners={};
  const window={top:{},BX:{message:()=>uid,bitrix_sessid:()=>`csrf-${uid}`},fetch:async(url,options)=>{s.calls.push({url,options});return s.fetch(url,options);},addEventListener:(name,fn)=>{listeners[name]=fn;},confirm:()=>true};
  const sandbox={window,location:{origin,pathname:'/company/personal/user/1178/tasks/task/view/129769/'},document:{readyState:'loading',addEventListener(){},body:null},localStorage:{getItem:key=>s.store.get(key) || null,setItem:(key,value)=>s.store.set(key,value),removeItem:key=>s.store.delete(key)},XMLHttpRequest:XHR,navigator:{locks:{request:async(key,opts,fn)=>{if(s.locks.has(key))return fn(null);s.locks.add(key);try{return await fn({name:key});}finally{s.locks.delete(key);}}}},setInterval:()=>1,clearInterval(){},setTimeout,clearTimeout,URL,URLSearchParams,FormData,Headers,Request,AbortController,Intl,Date,console};
+ sandbox.Date=Clock;
  vm.createContext(sandbox);vm.runInContext(source,sandbox);return sandbox;
 }
 function seed(s){
@@ -63,6 +64,33 @@ test('show-all preference survives reload and is stored separately for each acco
  const s=shared();s.store.set(prefix+'1178:showAllMeetings','true');
  assert.equal(runtime(s).__testRuntime.showAllMeetings(),true);
  assert.equal(runtime(s,999).__testRuntime.showAllMeetings(),false);
+});
+
+test('weekly occurrences keep appearing after the first date despite stale series timestamps',async()=>{
+ const first='2026-10-05',stamp=Date.parse(first+'T07:00:00Z')/1000;
+ for(const date of [first,'2026-10-12','2026-10-19']) {
+  class Clock extends Date {constructor(...args){super(...(args.length ? args : [date+'T06:00:00Z']));}static now(){return new Clock().getTime();}}
+  const s=shared(),r=runtime(s,1178,Clock),ui=meetingsUI(r);
+  r.window.BX.rest={callMethod(method,params,done){done({data:()=>method==='calendar.user.settings.get' ? {timezoneName:'Europe/Moscow'} : [
+   {NAME:'Еженедельный',DATE_FROM:date+' 10:00:00',DATE_TO:date+' 10:30:00',DATE_FROM_TS_UTC:stamp,ORIGINAL_DATE_FROM:first+' 10:00:00',RRULE:{FREQ:'WEEKLY'},DESCRIPTION:'https://zoom.us/j/123'},
+   {NAME:'Удалённый',DATE_FROM:date+' 11:00:00',DELETED:'Y',DESCRIPTION:'https://zoom.us/j/999'},
+   {NAME:'Соседний день',DATE_FROM:'2026-10-20 10:00:00',RRULE:{FREQ:'WEEKLY'},DESCRIPTION:'https://zoom.us/j/999'}
+  ]});}};
+  await r.__testRuntime.loadMeetings();
+  assert.equal(ui.meetingsList.children.length,1,date);
+  assert.equal(r.__testRuntime.getMeetingsState().items[0].time,'10:00–10:30');
+ }
+});
+
+test('calendar cache expires after five minutes and reselects the day after midnight',async()=>{
+ let now=Date.parse('2026-10-18T20:59:00Z'),count=0;
+ class Clock extends Date {constructor(...args){super(...(args.length ? args : [now]));}static now(){return now;}}
+ const r=runtime(shared(),1178,Clock);
+ r.window.BX.rest={callMethod(method,params,done){if(method==='calendar.event.get')count++;done({data:()=>method==='calendar.user.settings.get' ? {timezoneName:'Europe/Moscow'} : [{NAME:params.from,DATE_FROM:params.from+' 10:00:00'}]});}};
+ await r.__testRuntime.loadMeetings();await r.__testRuntime.loadMeetings();assert.equal(count,1);
+ now+=60001;await r.__testRuntime.loadMeetings();assert.equal(count,2);
+ assert.equal(r.__testRuntime.getMeetingsState().items[0].name,'2026-10-19');
+ now+=300001;await r.__testRuntime.loadMeetings();assert.equal(count,3);
 });
 test('a preference changed while loading also applies to the received calendar',async()=>{
  const s=shared(),{r}=calendarFixture(s),original=r.window.BX.rest.callMethod,wait=deferred();

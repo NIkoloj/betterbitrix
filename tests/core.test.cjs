@@ -136,9 +136,19 @@ test('meetings sort by the clock shown by Bitrix instead of UTC timestamp',()=>{
  assert.equal(C.calendarEventMinutes({DATE_FROM:'10/02/2026 05:30:00 pm'}),1050);
  assert.equal(C.calendarEventMinutes({DT_SKIP_TIME:'Y'}),-1);
 });
+test('recurring calendar dates accept localized and formatted occurrence dates',()=>{
+ const context={zone:'Europe/Moscow',offsetSeconds:10800},RRULE={FREQ:'WEEKLY'};
+ for(const DATE_FROM of ['2026-10-19 10:00:00','19.10.2026 10:00:00','10/19/2026 10:00:00','Mon Oct 19 2026 10:00:00']) {
+  assert.equal(C.calendarEventOnDay({RRULE,DATE_FROM,DATE_FROM_TS_UTC:1},'2026-10-19',context),true,DATE_FROM);
+  assert.equal(C.calendarEventOnDay({RRULE,DATE_FROM,DATE_FROM_TS_UTC:1},'2026-10-20',context),false,DATE_FROM);
+ }
+ assert.equal(C.calendarEventOnDay({RRULE:{},DATE_FROM:'2026-10-18 23:30:00',DATE_FROM_TS_UTC:Date.parse('2026-10-18T23:30:00Z')/1000},'2026-10-19',context),true);
+ assert.equal(C.calendarEventOnDay({RRULE,DATE_FROM:'02.10.2026 10:00:00'},'2026-02-10',context),false);
+ assert.equal(C.calendarEventOnDay({RRULE,DATE_FROM:'10/02/2026 10:00:00'},'2026-10-02',context),true);
+});
 test('compact UI keeps timer on the main button and exposes collapse control',()=>{
  const source=fs.readFileSync(require.resolve('../BetterBitrix.user.js'),'utf8');
- assert.match(source,/@name\s+BetterBitrix/);assert.match(source,/@version\s+2\.3\.1/);assert.match(source,/<span class="title">BetterBitrix<\/span>/);
+ assert.match(source,/@name\s+BetterBitrix/);assert.match(source,/@version\s+2\.3\.2/);assert.match(source,/<span class="title">BetterBitrix<\/span>/);
  assert.match(source,/@updateURL\s+https:\/\/nikoloj\.github\.io\/betterbitrix\/BetterBitrix\.meta\.js/);
  assert.match(source,/@downloadURL\s+https:\/\/nikoloj\.github\.io\/betterbitrix\/BetterBitrix\.user\.js/);
  assert.match(source,/id="collapse"/);assert.match(source,/ui\.collapse\.onclick/);

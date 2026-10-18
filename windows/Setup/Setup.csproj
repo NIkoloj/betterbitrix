@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>WinExe</OutputType><UseWindowsForms>true</UseWindowsForms><AssemblyName>BetterBitrixSetup</AssemblyName></PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Shared/Shared.csproj" />
+    <EmbeddedResource Include="../.build/setup-payload.zip" LogicalName="BetterBitrix.Payload.zip" Condition="Exists('../.build/setup-payload.zip')" />
+  </ItemGroup>
+</Project>

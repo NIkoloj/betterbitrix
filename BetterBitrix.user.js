@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BetterBitrix
 // @namespace    local.bitrix-eight-hours
-// @version      2.3.1
+// @version      2.3.2
 // @description  Рабочий таймер, быстрые 8 часов и ссылки на созвоны из календаря Bitrix.
 // @homepageURL  https://nikoloj.github.io/betterbitrix/
 // @supportURL   https://github.com/NIkoloj/betterbitrix/issues
@@ -321,6 +321,10 @@
     throw Error('Bitrix не вернул часовой пояс календаря.');
   }
   function calendarEventOnDay(event,expectedDate,context) {
+    // Expanded occurrences can retain the series master's UTC timestamp.
+    // DATE_FROM is the occurrence date returned for the requested range.
+    const recurring=!!event?.RRULE?.FREQ || (typeof event?.RRULE==='string' && !!event.RRULE) || !!event?.ORIGINAL_DATE_FROM || positive(event?.RECURRENCE_ID);
+    if(recurring && (event?.DATE_FROM || event?.DATE_FROM_FORMATTED)) return calendarDateMatches(event,expectedDate);
     const rawTimestamp=Number(event?.DATE_FROM_TS_UTC);
     if(Number.isFinite(rawTimestamp) && rawTimestamp>0) {
       const timestamp=rawTimestamp>1e12 ? rawTimestamp : rawTimestamp*1000;
@@ -328,11 +332,24 @@
       if(context?.zone && isValidTimeZone(context.zone)) return day(instant,context.zone)===expectedDate;
       if(Number.isFinite(context?.offsetSeconds)) return new Date(timestamp+context.offsetSeconds*1000).toISOString().slice(0,10)===expectedDate;
     }
+    return calendarDateMatches(event,expectedDate);
+  }
+  function calendarDateMatches(event,expectedDate) {
+    // Bitrix also supplies strings such as "Mon Oct 19 2026 10:00:00".
     const raw=String(event?.DATE_FROM || event?.DATE_FROM_FORMATTED || '');
-    const [year,month,datePart]=String(expectedDate).split('-');
-    return new RegExp(`(?:^|\\D)${year}[-./]${month}[-./]${datePart}(?:\\D|$)`).test(raw) ||
-      new RegExp(`(?:^|\\D)${datePart}[-./]${month}[-./]${year}(?:\\D|$)`).test(raw) ||
-      new RegExp(`(?:^|\\D)${month}[-./]${datePart}[-./]${year}(?:\\D|$)`).test(raw);
+    const text=String(event?.DATE_FROM_FORMATTED || raw);
+    if(/\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\b/i.test(text)) {
+      const parsed=new Date(text);
+      if(Number.isFinite(parsed.getTime())) return `${parsed.getFullYear()}-${String(parsed.getMonth()+1).padStart(2,'0')}-${String(parsed.getDate()).padStart(2,'0')}`===expectedDate;
+    }
+    let parts=raw.match(/^(\d{4})[-./](\d{1,2})[-./](\d{1,2})(?:\D|$)/);
+    if(parts) return `${parts[1]}-${parts[2].padStart(2,'0')}-${parts[3].padStart(2,'0')}`===expectedDate;
+    parts=raw.match(/^(\d{1,2})([-./])(\d{1,2})\2(\d{4})(?:\D|$)/);
+    if(!parts) return false;
+    // Slash dates in REST use month/day/year; dot dates use day.month.year.
+    const monthFirst=parts[2]==='/' && Number(parts[1])<=12;
+    const month=monthFirst ? parts[1] : parts[3],date=monthFirst ? parts[3] : parts[1];
+    return `${parts[4]}-${month.padStart(2,'0')}-${date.padStart(2,'0')}`===expectedDate;
   }
   const Core={compile,render,migrateProfile,decodeBody,receipt,definiteError,day,positive,get,safeCallUrl,callLinks,calendarClock,calendarEventMinutes,calendarEventTime,calendarContext,calendarEventOnDay,MARKER};
   if (typeof module !== 'undefined' && module.exports && typeof window === 'undefined') { module.exports=Core; return; }
@@ -344,6 +361,8 @@
   const remove=key=>{ localStorage.removeItem(PREFIX+key); refresh(); };
   let ui=null, busy=false, taskCache=[], message='', lastIdentity=null;
   let meetingsState={key:'',status:'idle',items:[],error:''};
+  let meetingsCheckedAt=0;
+  let meetingsContext=null;
   function identity() {
     try {
       const id=window.BX?.message?.('USER_ID');
@@ -425,21 +444,25 @@
     try {
       const settings=await callBitrix('calendar.user.settings.get',{});
       const context=calendarContext(settings,new Date());
+      meetingsContext=context;
       const date=context.date, key=`${uid}:${date}:${context.zone || `UTC${context.offsetSeconds}`}`;
-      if(!force && previous.key===key && previous.status==='ready') { meetingsState=previous;renderMeetings();return; }
+      if(!force && previous.key===key && previous.status==='ready' && Date.now()-meetingsCheckedAt<300000) { meetingsState=previous;renderMeetings();return; }
       const data=await callBitrix('calendar.event.get',{type:'user',ownerId:uid,from:date,to:date});
       const events=Array.isArray(data) ? data : Array.isArray(data?.events) ? data.events : [];
       const items=[];
       for(const event of events) {
-        if(String(event?.MEETING_STATUS).toUpperCase()==='N') continue;
+        if(String(event?.MEETING_STATUS).toUpperCase()==='N' || String(event?.DELETED).toUpperCase()==='Y') continue;
         if(!calendarEventOnDay(event,date,context)) continue;
         const url=callLinks([event?.DESCRIPTION,event?.['~DESCRIPTION']])[0] || null;
         const start=calendarEventMinutes(event);
         items.push({name:String(event?.NAME || 'Созвон'),time:calendarEventTime(event),provider:url ? (new URL(url).hostname.includes('zoom') ? 'Zoom' : 'Teams') : 'Без ссылки',url,start});
       }
       items.sort((a,b)=>a.start-b.start || a.name.localeCompare(b.name,'ru'));
+      if(identity()!==uid) { meetingsState={key:'',status:'idle',items:[],error:''};return; }
+      meetingsCheckedAt=Date.now();
       meetingsState={key,status:'ready',items,error:''}; renderMeetings();
     } catch(problem) {
+      meetingsCheckedAt=Date.now();
       meetingsState={key:meetingsState.key,status:'error',items:[],error:`Не удалось загрузить календарь: ${problem?.message || problem}`}; renderMeetings();
     }
   }
@@ -817,7 +840,7 @@
       .pause{width:100%;margin-top:7px;background:#fff;font-weight:600}
       .taskline{font-size:11px;color:#6a7786;line-height:1.4;margin-top:9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
       .status{line-height:1.45;white-space:pre-wrap;overflow-wrap:anywhere;margin-top:10px;padding:9px 10px;background:#fff8e7;border-radius:8px;color:#684f18}
-      .meetings{margin-top:9px;padding:9px;background:#f7f9fb;border:1px solid #e1e7ed;border-radius:9px}.meetings-head{display:flex;align-items:center;justify-content:space-between;font-weight:700}.meetings-head button{padding:3px 7px}.meetings-status{font-size:11px;line-height:1.4;color:#687789;margin-top:7px}.meetings-list{display:grid;gap:6px;margin-top:7px}.meeting-item{width:100%;text-align:left;background:#fff;padding:8px}.meeting-top{display:flex;justify-content:space-between;gap:8px;color:#617184;font-size:11px}.meeting-time{font-variant-numeric:tabular-nums;font-weight:700;color:#26394c}.meeting-provider{color:#0876c7}.meeting-name{display:block;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+      .meetings{min-width:0;margin-top:9px;padding:9px;background:#f7f9fb;border:1px solid #e1e7ed;border-radius:9px}.meetings-head{display:flex;align-items:center;justify-content:space-between;font-weight:700}.meetings-head button{padding:3px 7px}.meetings-status{font-size:11px;line-height:1.4;color:#687789;margin-top:7px;overflow-wrap:anywhere}.meetings-list{display:grid;grid-template-columns:minmax(0,1fr);gap:6px;margin-top:7px;min-width:0}.meeting-item{display:block;width:100%;min-width:0;max-width:100%;overflow:hidden;text-align:left;background:#fff;padding:8px}.meeting-top{display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 8px;color:#617184;font-size:11px}.meeting-time{font-variant-numeric:tabular-nums;font-weight:700;color:#26394c}.meeting-provider{color:#0876c7}.meeting-name{display:block;min-width:0;margin-top:3px;white-space:normal;overflow-wrap:anywhere;font-weight:600}
       .settings{border-top:1px solid #e4e9ef;margin-top:12px;padding-top:5px}.chosen{line-height:1.4;overflow-wrap:anywhere;color:#42546a;margin:7px 0}
       input,select{font:inherit;width:100%;padding:9px;border:1px solid #cbd4df;border-radius:7px;margin-top:7px;background:#fff;color:#19202b}select{max-width:100%}.field-label{display:block;margin-top:10px;font-weight:700;color:#42546a}
       .checkbox-label{display:flex;align-items:center;gap:7px;margin-top:10px;color:#42546a;line-height:1.4}.checkbox-label input{width:auto;margin:0}.meeting-item:disabled{opacity:.65;background:#f5f7fa}.meeting-item:disabled .meeting-provider{color:#687789}
@@ -958,6 +981,10 @@
   const timer=setInterval(()=>{
     mount(); refresh();
     const uid=identity();
+    if(ui && !ui.meetingsPane.hidden && uid && meetingsState.status!=='loading') {
+      const date=meetingsContext?.zone ? day(new Date(),meetingsContext.zone) : meetingsContext ? new Date(Date.now()+meetingsContext.offsetSeconds*1000).toISOString().slice(0,10) : '';
+      if(Date.now()-meetingsCheckedAt>=300000 || (meetingsState.status!=='error' && !meetingsState.key.startsWith(`${uid}:${date}:`))) void loadMeetings();
+    }
     if(ui && uid && lastIdentity!==ui.lastUid) { ui.lastUid=uid; discover(); const task=currentTask();if(!selected() && task) write(keyFor('selected'),task);refreshTasks(); }
   },250);
   window.addEventListener('pagehide',()=>clearInterval(timer),{once:true});

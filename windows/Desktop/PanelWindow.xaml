@@ -1,0 +1,53 @@
+<Window x:Class="BetterBitrix.PanelWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="BetterBitrix" Width="410" Height="570" MinWidth="370" MinHeight="340" ShowInTaskbar="False" Topmost="True" Background="#F6F8FB" FontFamily="Segoe UI" FontSize="13" WindowStartupLocation="Manual">
+  <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" HorizontalContentAlignment="Stretch">
+    <StackPanel Margin="16">
+      <Grid>
+        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+        <TextBlock Text="BetterBitrix" FontSize="19" FontWeight="SemiBold" VerticalAlignment="Center"/>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
+          <Button Content="Созвоны" Click="Meetings_Click"/><Button Content="Дейлик" Click="Daily_Click"/>
+          <Button Content="⚙" ToolTip="Настройки" Click="Settings_Click"/>
+        </StackPanel>
+      </Grid>
+      <TextBlock x:Name="ConnectionLabel" Margin="3,10" Foreground="#687789" TextWrapping="Wrap"/>
+      <Button x:Name="PrimaryButton" Content="Начать рабочий день" Click="Primary_Click" Background="#0D83DD" Foreground="White" FontSize="16" FontWeight="SemiBold" Padding="12"/>
+      <Button x:Name="PauseButton" Click="Pause_Click" Visibility="Collapsed"/>
+      <TextBlock x:Name="TaskLabel" Margin="3,8" Foreground="#687789" TextTrimming="CharacterEllipsis"/>
+      <TextBlock x:Name="StatusLabel" Margin="3,7" Foreground="#76531A" TextWrapping="Wrap"/>
+      <Button x:Name="PortalButton" Content="Открыть Bitrix в браузере" Click="Portal_Click"/>
+      <StackPanel x:Name="MeetingsPane" Visibility="Collapsed" Margin="0,12,0,0">
+        <DockPanel><TextBlock Text="Созвоны сегодня" FontWeight="SemiBold" VerticalAlignment="Center"/><Button Content="Обновить" Click="RefreshMeetings_Click" HorizontalAlignment="Right"/></DockPanel>
+        <TextBlock x:Name="MeetingsHint" TextWrapping="Wrap" Margin="3,5" Foreground="#687789"/>
+        <StackPanel x:Name="MeetingList"/>
+      </StackPanel>
+      <StackPanel x:Name="SettingsPane" Visibility="Collapsed" Margin="0,12,0,0">
+        <Separator/><TextBlock Text="Настройки" FontSize="16" FontWeight="SemiBold" Margin="3,10"/>
+        <Button Content="1. Установить мост Tampermonkey" Click="InstallBridge_Click"/>
+        <Button Content="2. Связать с браузером" Click="Pair_Click"/>
+        <TextBlock Text="Мост устанавливается один раз рядом с обычным BetterBitrix. Связь использует вашу сессию Bitrix в браузере. После закрытия браузера таймер продолжает идти; для паузы и записи времени снова откройте Bitrix." Margin="3,5" FontSize="12" Foreground="#687789" TextWrapping="Wrap"/>
+        <Button x:Name="UncertainButton" Visibility="Collapsed" Content="Проверил журнал Bitrix — обновить доступ" Click="Uncertain_Click"/>
+        <CheckBox x:Name="AutoStartCheck" Content="Запускать при входе в Windows" Margin="3,5" Click="AutoStart_Click"/>
+        <CheckBox x:Name="TrayButtonsCheck" Content="Быстрые кнопки в трее" Margin="3,5" Click="TrayButtons_Click"/>
+        <TextBlock Text="Время: часы сверху, минуты снизу. Чтобы кнопки были постоянно видны, перетащите значки BetterBitrix из меню «^» к часам Windows." Margin="3,5" FontSize="12" Foreground="#687789" TextWrapping="Wrap"/>
+        <StackPanel x:Name="ResolvePane" Visibility="Collapsed">
+          <TextBlock Text="Сначала проверьте журнал времени в задаче." Foreground="#76531A" TextWrapping="Wrap" Margin="3,8"/>
+          <WrapPanel><Button Content="Проверил: записано" Click="Exists_Click"/><Button Content="Проверил: записи нет" Click="Absent_Click"/></WrapPanel>
+        </StackPanel>
+        <TextBlock Text="Задача по умолчанию" FontWeight="SemiBold" Margin="3,10,0,0"/>
+        <ComboBox x:Name="TaskSelect" SelectionChanged="TaskSelect_Changed"/>
+        <WrapPanel><Button x:Name="CollectButton" Content="Обновить список" Click="Collect_Click"/><Button x:Name="CurrentButton" Content="Текущая задача" Click="Current_Click"/><Button Content="Открыть задачу" Click="OpenTask_Click"/></WrapPanel>
+        <TextBlock Text="Откройте список задач или карточку задачи в Bitrix. В нескольких вкладках мост автоматически выбирает одну для связи." FontSize="12" Foreground="#687789" TextWrapping="Wrap" Margin="3,6"/>
+        <TextBlock Text="Часовой пояс рабочего дня" FontWeight="SemiBold" Margin="3,10,0,0"/>
+        <TextBox x:Name="ZoneInput" ToolTip="auto или IANA-зона, например Europe/Moscow"/>
+        <TextBlock x:Name="ZoneHint" Foreground="#687789" Margin="3,3" TextWrapping="Wrap"/>
+        <TextBlock Text="Ссылка на дейлик — Zoom или Teams" FontWeight="SemiBold" Margin="3,10,0,0"/>
+        <TextBox x:Name="DailyInput"/>
+        <CheckBox x:Name="ShowAllCheck" Content="Показывать все сегодняшние события" Margin="3,7"/>
+        <Button x:Name="SaveButton" Content="Сохранить настройки" Click="Save_Click"/>
+        <WrapPanel><Button x:Name="ConfigureButton" Content="Настроить Bitrix" Click="Configure_Click"/><Button x:Name="CancelButton" Content="Отменить настройку" Click="Cancel_Click"/></WrapPanel>
+        <TextBlock Text="При первой настройке сохраните через форму Bitrix 8 часов с комментарием «Работа над проектом». Эта запись уже учитывает сегодняшний день." FontSize="12" Foreground="#687789" TextWrapping="Wrap" Margin="3,6"/>
+        <Button x:Name="QuickButton" Content="Записать 8 часов сразу" Click="Quick_Click"/>
+      </StackPanel>
+    </StackPanel>
+  </ScrollViewer>
+</Window>

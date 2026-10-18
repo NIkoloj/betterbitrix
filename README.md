@@ -4,6 +4,10 @@
 
 Ссылки на созвоны распознаются также в HTML-гиперссылках и BBCode. В настройках можно включить показ всех сегодняшних событий календаря; строки без ссылки будут неактивны.
 
+Версия **2.3.2** исправляет пропадающие повторяющиеся встречи и выход карточек созвонов за границы панели. Открытый календарь обновляется каждые пять минут и при смене дня.
+
+Для Windows доступен [BetterBitrix Portable 0.3.2](https://github.com/NIkoloj/betterbitrix/releases/tag/v2.3.2): приложение для трея с включённым .NET 10.0.13. [Инструкция](windows/README.md) · [обновить мост Tampermonkey](https://nikoloj.github.io/betterbitrix/windows/companion/BetterBitrixPortable.user.js).
+
 ## Установка
 
 1. Установите Tampermonkey.

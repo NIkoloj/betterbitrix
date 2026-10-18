@@ -1,0 +1,37 @@
+{
+  "manifest_version": 3,
+  "name": "BetterBitrix Desktop Bridge",
+  "version": "0.2.0",
+  "description": "Соединяет Windows-панель BetterBitrix с вашей активной сессией Bitrix.",
+  "minimum_chrome_version": "111",
+  "permissions": [
+    "nativeMessaging",
+    "scripting",
+    "storage",
+    "alarms"
+  ],
+  "host_permissions": [
+    "https://b24.entgld.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "BetterBitrix: подключить эту вкладку"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://b24.entgld.com/*"
+      ],
+      "js": [
+        "runtime.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN",
+      "all_frames": true
+    }
+  ],
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA1rsJakTDXrp9GXncRzRyBFJZwPVZETatj834vKPTUhosD35Hd6i21PDWuQOi1ze+O8rky9nHXJm0wZZ2/KWVTi1wJmyW2HCw9mAB/Szv8WPRYO32KlK+nHXdvZau/U686ha0kZ4VWbY6CDk/rgVsNIlZnVFeUIIjG2iAEJVbIV8Ba8QcvU0TnDcf1LB2bm4hWlWXQGIekzhqrkY+ykyIMhHAKFAcwHbmek4u0IwUUIgxXp8AdUVD+z182JWBQeeNVwtUHup3ZrQCmbAsra1VAm9alni0Kpjn227io/y+cZwKyFXO5RWansZmxKCXSQHzlEJiwErYOqpuvO42uCEpGwIDAQAB"
+}
