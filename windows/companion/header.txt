@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BetterBitrix Portable — мост
 // @namespace    local.betterbitrix-portable
-// @version      0.3.3
+// @version      0.3.4
 // @homepageURL  https://nikoloj.github.io/betterbitrix/
 // @updateURL    https://nikoloj.github.io/betterbitrix/windows/companion/BetterBitrixPortable.meta.js
 // @downloadURL  https://nikoloj.github.io/betterbitrix/windows/companion/BetterBitrixPortable.user.js

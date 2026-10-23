@@ -27,6 +27,18 @@ async Task<HttpResponseMessage> Post(string path, object payload, string? token 
     return await http.SendAsync(request);
 }
 void Assert(bool condition, string error) { if (!condition) throw new Exception(error); }
+const string teamsMeet = "https://teams.microsoft.com/meet/123456789?p=AbCd_12-xy";
+string SafeLink(string target) => "https://eur01.safelinks.protection.outlook.com/?url=" + Uri.EscapeDataString(target) + "&data=fixture&sdata=fixture&reserved=0";
+var protectedTeams = SafeLink(teamsMeet);
+foreach (var url in new[] { teamsMeet, protectedTeams, SafeLink("https://zoom.us/j/123?pwd=abc"), SafeLink(SafeLink(teamsMeet)) })
+    Assert(Links.CanOpen(url), "Windows rejected supported call link: " + url);
+foreach (var url in new[] { SafeLink("https://evil.test/"), SafeLink("http://teams.microsoft.com/meet/123"), SafeLink("https://user:pass@teams.microsoft.com/meet/123"),
+    protectedTeams.Replace("outlook.com", "outlook.com.evil.test"), protectedTeams + "&url=https%3A%2F%2Fevil.test", "https://eur01.safelinks.protection.outlook.com/?data=fixture", SafeLink(SafeLink(SafeLink(SafeLink(teamsMeet)))) })
+    Assert(!Links.CanOpen(url), "Windows accepted unsupported call link: " + url);
+state.MeetingsDate = TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, TimeZoneInfo.FindSystemTimeZoneById("Europe/Moscow")).ToString("yyyy-MM-dd");
+state.MeetingsTimeZone = "Europe/Moscow";state.MeetingsStatus = "ready";
+state.Meetings = [new Meeting { Title = "Teams", Provider = "Teams", Url = teamsMeet }, new Meeting { Title = "Teams Outlook", Provider = "Teams", Url = protectedTeams },
+    new Meeting { Title = "Zoom", Provider = "Zoom", Url = "https://zoom.us/j/123" }, new Meeting { Title = "Без ссылки", Provider = "Без ссылки" }];
 var script = await http.GetStringAsync("/BetterBitrixPortable.user.js");
 Assert(script.Contains("// ==UserScript==") && script.Contains("GM_xmlhttpRequest") && !script.Contains("secret-csrf"), "Embedded bridge script missing");
 Assert(script == File.ReadAllText(Path.Combine(root, "companion", "BetterBitrixPortable.user.js")), "Embedded bridge differs from current generated source");
@@ -61,6 +73,10 @@ async Task<JsonDocument> Exchange(List<BridgeMessage>? results = null)
 }
 using (await Exchange()) { }
 Assert(bridge.Online && bridge.State?.Status == "Готово — связь установлена", "UTF-8 state missing");
+Assert(bridge.State!.Meetings.Select(item => item.Url).SequenceEqual(new[] { teamsMeet, protectedTeams, "https://zoom.us/j/123", "" }), "Teams/Zoom/unlinked calendar entries changed in transport");
+using (var savedCalls = new BridgeService(isolated, port + 1))
+    Assert(savedCalls.State!.Meetings[1].Url == protectedTeams, "Protected Teams URL changed in persistent calendar");
+Console.WriteLine("PASS direct/protected Teams meet links, native URL validation, transport and persistent mixed calendar");
 var unchangedFile = File.ReadAllText(Path.Combine(isolated, "session.json"));
 using (await Exchange()) { }
 Assert(File.ReadAllText(Path.Combine(isolated, "session.json")) == unchangedFile, "An unchanged heartbeat rewrote the durable snapshot");

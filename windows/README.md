@@ -1,14 +1,14 @@
-# BetterBitrix Portable 0.3.3 — Windows x64
+# BetterBitrix Portable 0.3.4 — Windows x64
 
 Пять значков в трее Windows: рабочий таймер, запуск/пауза, созвоны сегодня, дейлик и настройки. Окно появляется по нажатию. Приложение и веб-панель используют общий код календаря и таймера из `BetterBitrix.user.js`.
 
-В 0.3.3 добавлено распознавание ссылок `teams.cloud.microsoft` в календаре и дейлике. Поддержка классических адресов Teams и Zoom, исправления повторов встреч и переноса длинных названий сохранены. В EXE включены .NET, ASP.NET Core и Windows Desktop Runtime 10.0.13.
+В 0.3.4 ссылки Teams и Zoom ищутся не только в описании, но и в поле «Место» события. Поддерживаются приглашения Outlook Safe Links: приложение проверяет адрес назначения и открывает исходную защищённую ссылку. Исправления повторов встреч и переноса длинных названий сохранены. В EXE включены .NET, ASP.NET Core и Windows Desktop Runtime 10.0.13.
 
-[Скачать ZIP](https://github.com/NIkoloj/betterbitrix/releases/download/v2.3.3/BetterBitrixPortable-0.3.3-win-x64.zip) · [обновить мост](https://nikoloj.github.io/betterbitrix/windows/companion/BetterBitrixPortable.user.js).
+[Скачать ZIP](https://github.com/NIkoloj/betterbitrix/releases/download/v2.3.4/BetterBitrixPortable-0.3.4-win-x64.zip) · [обновить мост](https://nikoloj.github.io/betterbitrix/windows/companion/BetterBitrixPortable.user.js).
 
 ## Первый запуск
 
-1. Распакуйте **BetterBitrixPortable-0.3.3-win-x64.zip** в постоянную папку, доступную для записи, например `Документы/BetterBitrix`. Запустите **BetterBitrix.Desktop.exe**. Установщик, права администратора и отдельная установка .NET не нужны. Запускать прямо из ZIP не следует.
+1. Распакуйте **BetterBitrixPortable-0.3.4-win-x64.zip** в постоянную папку, доступную для записи, например `Документы/BetterBitrix`. Запустите **BetterBitrix.Desktop.exe**. Установщик, права администратора и отдельная установка .NET не нужны. Запускать прямо из ZIP не следует.
 2. В открывшихся настройках нажмите **«1. Установить мост Tampermonkey»**. В браузере подтвердите установку **BetterBitrix Portable — мост**. Он устанавливается один раз рядом с обычным BetterBitrix; исходный скрипт оставьте включённым. Если локальная ссылка скачалась вместо открытия Tampermonkey, импортируйте `BetterBitrixPortable.user.js` из архива через панель Tampermonkey → «Утилиты» → импорт файла.
 3. Нажмите **«2. Связать с браузером»**. Откроется Bitrix с одноразовым ключом. При запросе Tampermonkey разрешите этому мосту соединение с `127.0.0.1`. Используется текущая сессия Bitrix, дополнительного логина нет. Связь должна появиться через несколько секунд. Если корпоративный браузер запрещает запуск userscript или локальные соединения, это ограничение требует разрешения в его настройках/политиках.
 4. Перетащите значки BetterBitrix из меню **«^»** к часам Windows, чтобы они оставались видимыми. В настройках приложения при желании включите **«Запускать при входе в Windows»**.
@@ -50,7 +50,7 @@
 
 Закройте приложение через трей и замените EXE новой portable-сборкой, сохранив папку `data`. Если изменился мост, установите новую версию `.user.js` и обновите вкладки. Автообновление EXE пока отсутствует. Сборка не подписана сертификатом издателя; Windows может показать проверку неизвестного приложения.
 
-Исходники предыдущих итераций `Setup`, `NativeHost`, `extension` и технические install/uninstall-скрипты сохранены для истории. Они не входят в portable-архив и не используются при запуске 0.3.3. Если ранее вручную устанавливали 0.2, закройте её и отключите старое расширение, чтобы запускалась одна Windows-панель.
+Исходники предыдущих итераций `Setup`, `NativeHost`, `extension` и технические install/uninstall-скрипты сохранены для истории. Они не входят в portable-архив и не используются при запуске 0.3.4. Если ранее вручную устанавливали 0.2, закройте её и отключите старое расширение, чтобы запускалась одна Windows-панель.
 
 ## Сборка и проверки
 
@@ -62,7 +62,7 @@ pwsh -File windows/scripts/test.ps1 -SelfContained
 pwsh -File windows/scripts/check-portable.ps1
 ```
 
-Результат: `windows/dist/Portable/BetterBitrix.Desktop.exe` и `windows/.build/BetterBitrixPortable-0.3.3-win-x64.zip`. Архив содержит только EXE, мост и README. .NET включён в EXE; официальные runtime-пакеты берутся из NuGet. `-FrameworkDependent` у build.ps1 создаёт только разработческую сборку, требующую установленного .NET.
+Результат: `windows/dist/Portable/BetterBitrix.Desktop.exe` и `windows/.build/BetterBitrixPortable-0.3.4-win-x64.zip`. Архив содержит только EXE, мост и README. .NET включён в EXE; официальные runtime-пакеты берутся из NuGet. `-FrameworkDependent` у build.ps1 создаёт только разработческую сборку, требующую установленного .NET.
 
 Тесты проверяют исходную браузерную функциональность, общий таймер и журнал, смену пользователя, календарь, транспорт Tampermonkey, передачу связи между вкладками, повторное подключение, одноразовое связывание, авторизацию локального HTTP, неопределённую запись, сохранение после закрытия браузера/перезапуска процесса, настоящий Windows Shell и состав portable-архива. Артефакты проверки — `windows/.build/smoke`. Тесты не обращаются к корпоративному Bitrix и не включают автозапуск. Работа моста в реальном профиле Tampermonkey и первая отправка в корпоративный Bitrix требуют проверки в живой сессии; локальные проверки не заменяют её.
 
@@ -77,6 +77,6 @@ pwsh -File windows/scripts/check-portable.ps1
 
 API моста: [Tampermonkey @connect](https://www.tampermonkey.net/documentation.php?locale=en&q=connect), [Tampermonkey sandbox / unsafeWindow](https://www.tampermonkey.net/faq.php?ext=dhdg&q=Q404).
 
-Мост использует `@sandbox raw`, как исходный BetterBitrix, чтобы оба скрипта работали в одном контексте страницы. Особенность режима описана в [документации Tampermonkey](https://www.tampermonkey.net/documentation.php?locale=en&q=sandbox). Для полного обновления 0.3.3 замените EXE и обновите мост. Связывание и GM-хранилище сохраняются при обновлении существующего скрипта; исходный BetterBitrix оставьте включённым. У моста теперь есть `@updateURL` и `@downloadURL`: последующие обновления проверяет Tampermonkey.
+Мост использует `@sandbox raw`, как исходный BetterBitrix, чтобы оба скрипта работали в одном контексте страницы. Особенность режима описана в [документации Tampermonkey](https://www.tampermonkey.net/documentation.php?locale=en&q=sandbox). Для полного обновления 0.3.4 замените EXE и обновите мост. Связывание и GM-хранилище сохраняются при обновлении существующего скрипта; исходный BetterBitrix оставьте включённым. У моста теперь есть `@updateURL` и `@downloadURL`: последующие обновления проверяет Tampermonkey.
 
 Генератор читает текущий `../BetterBitrix.user.js`, добавляет адаптер и транспорт, не монтируя дополнительную панель в DOM. Замороженный `upstream/BetterBitrix-2.3.1.user.js` сохранён для истории. Исправления общего кода автоматически попадают в Windows-мост при сборке.

@@ -44,6 +44,27 @@ test('Windows bridge includes Teams cloud meetings and saves the same daily URL'
  const settings=await f.execute('settings',{dailyUrl:url,timeZone:'Europe/Moscow'});
  assert.equal(settings.dailyUrl,url);
 });
+test('Windows includes Teams meet links from description, location and Outlook invitations beside Zoom and unlinked events',async()=>{
+ const f=fixture(),date=C.day(),teams='https://teams.microsoft.com/meet/123456789?p=AbCd_12-xy';
+ const wrapped=`https://eur01.safelinks.protection.outlook.com/?url=${encodeURIComponent(teams)}&data=fixture&sdata=fixture&reserved=0`;
+ const events=[
+  {NAME:'Teams description',DESCRIPTION:teams},
+  {NAME:'Teams location',LOCATION:teams},
+  {NAME:'Teams raw location','~LOCATION':`[url=${teams}]Присоединиться[/url]`},
+  {NAME:'Teams Outlook',DESCRIPTION:`<a href="${wrapped.replaceAll('&','&amp;')}">${teams}</a>`},
+  {NAME:'Zoom',DESCRIPTION:'https://zoom.us/j/123'},
+  {NAME:'Без ссылки'}
+ ].map((event,index)=>({...event,DATE_FROM:`${date} ${String(10+index).padStart(2,'0')}:00:00`,MEETING_STATUS:'Y'}));
+ f.window.BX.rest={callMethod(method,params,done){done({data:()=>method==='calendar.user.settings.get' ? {timezoneName:'Europe/Moscow'} : events});}};
+ await f.execute('settings',{timeZone:'Europe/Moscow',showAllMeetings:true});
+ let state=await f.execute('meetings');
+ assert.deepEqual(Array.from(state.meetings,item=>item.title),events.map(event=>event.NAME));
+ assert.deepEqual(Array.from(state.meetings,item=>item.url),[teams,teams,teams,wrapped,'https://zoom.us/j/123','']);
+ assert.deepEqual(Array.from(state.meetings,item=>item.provider),['Teams','Teams','Teams','Teams','Zoom','Без ссылки']);
+ await f.execute('settings',{timeZone:'Europe/Moscow',showAllMeetings:false,dailyUrl:wrapped});
+ state=await f.execute('state');
+ assert.equal(state.meetings.length,5);assert.equal(state.dailyUrl,wrapped);
+});
 test('desktop timer survives runtime recreation and records exact elapsed duration',async()=>{
   const f=fixture();await f.execute('start');f.advance(3600000);await f.execute('pause');
   f.advance(1800000);await f.execute('pause');f.advance(60000);

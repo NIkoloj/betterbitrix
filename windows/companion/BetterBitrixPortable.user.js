@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BetterBitrix Portable — мост
 // @namespace    local.betterbitrix-portable
-// @version      0.3.3
+// @version      0.3.4
 // @homepageURL  https://nikoloj.github.io/betterbitrix/
 // @updateURL    https://nikoloj.github.io/betterbitrix/windows/companion/BetterBitrixPortable.meta.js
 // @downloadURL  https://nikoloj.github.io/betterbitrix/windows/companion/BetterBitrixPortable.user.js
@@ -254,15 +254,23 @@ const window=unsafeWindow, XMLHttpRequest=window.XMLHttpRequest, navigator=windo
       return code>0 && code<=0x10ffff && !(code>=0xd800 && code<=0xdfff) ? String.fromCodePoint(code) : entity;
     });
   }
-  function safeCallUrl(value) {
+  function callUrlInfo(value,depth=0) {
     if(typeof value!=='string') return null;
     const decoded=decodeLinkEntities(value);
     let url; try { url=new URL(decoded); } catch { return null; }
     if(url.protocol!=='https:' || url.username || url.password) return null;
     const host=url.hostname.toLowerCase();
-    if(host==='zoom.us' || host.endsWith('.zoom.us') || host==='teams.microsoft.com' || host==='teams.live.com' || host==='teams.cloud.microsoft') return url.href;
+    if(host==='zoom.us' || host.endsWith('.zoom.us')) return {url:url.href,provider:'Zoom'};
+    if(host==='teams.microsoft.com' || host==='teams.live.com' || host==='teams.cloud.microsoft') return {url:url.href,provider:'Teams'};
+    if(depth<3 && host.endsWith('.safelinks.protection.outlook.com')) {
+      const targets=url.searchParams.getAll('url');
+      const destination=targets.length===1 && callUrlInfo(targets[0],depth+1);
+      // Keep the protected URL for opening; do not bypass Outlook's click-time check.
+      if(destination) return {url:url.href,provider:destination.provider};
+    }
     return null;
   }
+  const safeCallUrl=value=>callUrlInfo(value)?.url || null;
   function callLinks(value) {
     const strings=[];
     const collect=item=>{
@@ -460,9 +468,9 @@ const window=unsafeWindow, XMLHttpRequest=window.XMLHttpRequest, navigator=windo
       for(const event of events) {
         if(String(event?.MEETING_STATUS).toUpperCase()==='N' || String(event?.DELETED).toUpperCase()==='Y') continue;
         if(!calendarEventOnDay(event,date,context)) continue;
-        const url=callLinks([event?.DESCRIPTION,event?.['~DESCRIPTION']])[0] || null;
+        const url=callLinks([event?.DESCRIPTION,event?.['~DESCRIPTION'],event?.LOCATION,event?.['~LOCATION']])[0] || null;
         const start=calendarEventMinutes(event);
-        items.push({name:String(event?.NAME || 'Созвон'),time:calendarEventTime(event),provider:url ? (new URL(url).hostname.includes('zoom') ? 'Zoom' : 'Teams') : 'Без ссылки',url,start});
+        items.push({name:String(event?.NAME || 'Созвон'),time:calendarEventTime(event),provider:callUrlInfo(url)?.provider || 'Без ссылки',url,start});
       }
       items.sort((a,b)=>a.start-b.start || a.name.localeCompare(b.name,'ru'));
       if(identity()!==uid) { meetingsState={key:'',status:'idle',items:[],error:''};return; }

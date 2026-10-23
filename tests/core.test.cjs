@@ -114,6 +114,16 @@ test('Teams cloud support still rejects lookalike domains, credentials and unsaf
   assert.deepEqual(C.callLinks(`<a href="${url}">https://teams.cloud.microsoft/meet/123</a>`),[]);
  }
 });
+test('Safe Links preserve Outlook protection and require a supported destination',()=>{
+ const wrap=target=>`https://eur01.safelinks.protection.outlook.com/?url=${encodeURIComponent(target)}&data=fixture&sdata=fixture&reserved=0`;
+ const teams='https://teams.microsoft.com/meet/123456789?p=AbCd_12-xy',wrapped=wrap(teams);
+ assert.equal(C.safeCallUrl(wrapped),wrapped);
+ assert.deepEqual(C.callLinks(`<a href="${wrapped.replaceAll('&','&amp;')}">${teams}</a>`),[wrapped]);
+ for(const url of [wrap('https://evil.test/'),wrap('http://teams.microsoft.com/meet/123'),wrap('https://user:pass@teams.microsoft.com/meet/123'),wrapped.replace('outlook.com','outlook.com.evil.test'),wrapped.replace('eur01.safelinks','evilsafelinks'),wrapped+'&url=https%3A%2F%2Fevil.test', 'https://eur01.safelinks.protection.outlook.com/?data=fixture',wrap(wrap(wrap(wrap(teams))))]) {
+  assert.equal(C.safeCallUrl(url),null,url);
+  assert.deepEqual(C.callLinks(`<a href="${url}">${teams}</a>`),[],url);
+ }
+});
 test('BBCode hyperlinks return their target without markup or label text',()=>{
  const zoom='https://zoom.us/j/123?pwd=abc',teams='https://teams.microsoft.com/l/meetup-join/abc?context=a&b=2';
  for(const description of [
@@ -165,7 +175,7 @@ test('recurring calendar dates accept localized and formatted occurrence dates',
 });
 test('compact UI keeps timer on the main button and exposes collapse control',()=>{
  const source=fs.readFileSync(require.resolve('../BetterBitrix.user.js'),'utf8');
- assert.match(source,/@name\s+BetterBitrix/);assert.match(source,/@version\s+2\.3\.3/);assert.match(source,/<span class="title">BetterBitrix<\/span>/);
+ assert.match(source,/@name\s+BetterBitrix/);assert.match(source,/@version\s+2\.3\.4/);assert.match(source,/<span class="title">BetterBitrix<\/span>/);
  assert.match(source,/@updateURL\s+https:\/\/nikoloj\.github\.io\/betterbitrix\/BetterBitrix\.meta\.js/);
  assert.match(source,/@downloadURL\s+https:\/\/nikoloj\.github\.io\/betterbitrix\/BetterBitrix\.user\.js/);
  assert.match(source,/id="collapse"/);assert.match(source,/ui\.collapse\.onclick/);

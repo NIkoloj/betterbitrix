@@ -40,11 +40,26 @@ public static class Links
         Process.Start(new ProcessStartInfo(uri.AbsoluteUri) { UseShellExecute = true });
     }
     public static void OpenTask(long uid, long id) => Open($"{Portal}company/personal/user/{uid}/tasks/task/view/{id}/");
+    public static bool CanOpen(string value)
+    {
+        if (!Uri.TryCreate(value, UriKind.Absolute, out var uri) || uri.Scheme != "https" || !string.IsNullOrEmpty(uri.UserInfo)) return false;
+        return uri.Host == "b24.entgld.com" || IsCall(uri);
+    }
+    private static bool IsCall(Uri uri, int depth = 0)
+    {
+        if (uri.Scheme != "https" || !string.IsNullOrEmpty(uri.UserInfo)) return false;
+        var host = uri.Host.ToLowerInvariant();
+        if (host == "zoom.us" || host.EndsWith(".zoom.us", StringComparison.Ordinal) || host == "teams.microsoft.com" || host == "teams.live.com" || host == "teams.cloud.microsoft") return true;
+        if (depth >= 3 || !host.EndsWith(".safelinks.protection.outlook.com", StringComparison.Ordinal)) return false;
+        var exactTargets = uri.Query.TrimStart('?').Split('&').Select(part => part.Split('=', 2))
+            .Where(pair => System.Net.WebUtility.UrlDecode(pair[0]) == "url").ToArray();
+        return exactTargets.Length == 1 && exactTargets[0].Length == 2 &&
+            Uri.TryCreate(System.Net.WebUtility.UrlDecode(exactTargets[0][1]), UriKind.Absolute, out var destination) && IsCall(destination, depth + 1);
+    }
     public static void Open(string value)
     {
-        if (!Uri.TryCreate(value, UriKind.Absolute, out var uri) || uri.Scheme != "https" || !string.IsNullOrEmpty(uri.UserInfo)) return;
-        var host = uri.Host.ToLowerInvariant();
-        if (!(host == "b24.entgld.com" || host == "zoom.us" || host.EndsWith(".zoom.us") || host == "teams.microsoft.com" || host == "teams.live.com" || host == "teams.cloud.microsoft")) return;
+        if (!CanOpen(value)) return;
+        var uri = new Uri(value, UriKind.Absolute);
         Process.Start(new ProcessStartInfo(uri.AbsoluteUri) { UseShellExecute = true });
     }
 }

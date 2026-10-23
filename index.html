@@ -9,26 +9,41 @@
     :root{font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;color:#17212b;background:#f3f6f9}
     *{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px}
     main{width:min(620px,100%);padding:32px;background:#fff;border:1px solid #dce4eb;border-radius:18px;box-shadow:0 16px 50px #24425e18}
-    h1{margin:0 0 10px;font-size:34px}p{color:#536273;line-height:1.55}.version{font-size:13px;color:#7a8794}
-    .install{display:inline-flex;align-items:center;justify-content:center;margin-top:12px;padding:13px 18px;border-radius:10px;background:#0d83dd;color:#fff;text-decoration:none;font-weight:700}.install:hover{background:#0874c4}
-    ol{padding-left:22px;color:#405164;line-height:1.6}.note{margin-top:22px;padding:12px 14px;border-radius:10px;background:#eef6fc;font-size:14px}
+    h1{margin:0 0 10px;font-size:34px}h2{margin:24px 0 10px;font-size:20px}p{color:#536273;line-height:1.55}.version{font-size:13px;color:#7a8794}
+    .install{display:inline-flex;align-items:center;justify-content:center;max-width:100%;text-align:center;margin-top:12px;padding:13px 18px;border-radius:10px;background:#0d83dd;color:#fff;text-decoration:none;font-weight:700}.install:hover{background:#0874c4}
+    ol{padding-left:22px;color:#405164;line-height:1.6}li+li{margin-top:8px}a{overflow-wrap:anywhere}.note{margin-top:22px;padding:12px 14px;border-radius:10px;background:#eef6fc;font-size:14px}
     @media(prefers-color-scheme:dark){:root{color:#edf3f7;background:#11171d}main{background:#192229;border-color:#31404c}p,.version,ol{color:#aebbc5}.note{background:#172f40}}
+    @media(max-width:480px){body{padding:16px}main{padding:24px}}
   </style>
 </head>
 <body>
   <main>
-    <div class="version">Версия 2.3.3</div>
+    <div class="version">Версия 2.3.4</div>
     <h1>BetterBitrix</h1>
     <p>Рабочий таймер, быстрая запись восьми часов и ссылки на сегодняшние созвоны прямо в интерфейсе Bitrix.</p>
     <a class="install" href="BetterBitrix.user.js">Установить BetterBitrix</a>
-    <ol>
-      <li>Установите Tampermonkey.</li>
-      <li>Нажмите кнопку установки выше.</li>
-      <li>Подтвердите установку и обновите страницу Bitrix.</li>
-    </ol>
-    <div class="note">Для пользователей старой ручной версии это последнее ручное обновление. Следующие версии BetterBitrix будет получать автоматически.</div>
-    <p>В 2.3.3 добавлена поддержка ссылок Teams на teams.cloud.microsoft в календаре и дейлике. Исправления повторяющихся встреч сохранены.</p>
-    <p><a href="https://github.com/NIkoloj/betterbitrix/releases/download/v2.3.3/BetterBitrixPortable-0.3.3-win-x64.zip">Скачать приложение Windows 0.3.3</a> · <a href="windows/companion/BetterBitrixPortable.user.js">Обновить мост Tampermonkey</a></p>
+    <section aria-labelledby="first-install">
+      <h2 id="first-install">Первая установка</h2>
+      <ol>
+        <li>Установите <a href="https://www.tampermonkey.net/">Tampermonkey</a> из магазина расширений своего браузера. В Chrome / Edge включите у расширения <strong>«Разрешить пользовательские скрипты»</strong> и доступ к <strong>b24.entgld.com</strong>.</li>
+        <li>Нажмите <strong>«Установить BetterBitrix»</strong> выше и подтвердите установку в Tampermonkey.</li>
+        <li>Откройте Bitrix в этом же профиле браузера и обновите страницу. В панели BetterBitrix нажмите шестерёнку, откройте нужную задачу и выберите <strong>«Текущая задача»</strong>.</li>
+        <li>Нажмите <strong>«Настроить Bitrix»</strong>. Через обычную форму учёта времени задачи сохраните <strong>8 часов, 0 минут</strong> с комментарием <strong>«Работа над проектом»</strong>.</li>
+      </ol>
+      <div class="note">Эти 8 часов — настоящая запись за сегодня. После настройки используйте таймер со следующего рабочего дня. Если BetterBitrix уже настроен, повторять запись при обновлении не нужно.</div>
+      <p>Созвоны доступны по значку календаря. Ссылку на дейлик можно сохранить в настройках. <a href="INSTALL.md">Подробная инструкция</a>.</p>
+    </section>
+    <section aria-labelledby="windows-install">
+      <h2 id="windows-install">Приложение Windows</h2>
+      <ol>
+        <li>Скачайте ZIP ниже, распакуйте в постоянную папку и запустите <strong>BetterBitrix.Desktop.exe</strong>. Отдельная установка .NET не нужна.</li>
+        <li>В настройках приложения нажмите <strong>«Установить мост Tampermonkey»</strong>, затем <strong>«Связать с браузером»</strong>. Используйте тот же профиль, где открыт Bitrix; при запросе разрешите мосту соединение с <strong>127.0.0.1</strong>.</li>
+        <li>Обновите вкладки Bitrix. Обычный BetterBitrix и мост оставьте включёнными. Уже выполненная настройка задачи используется и в Windows.</li>
+      </ol>
+      <p>При обновлении закройте приложение через трей, замените файлы и сохраните папку <strong>data</strong>. Обновите мост Tampermonkey и перезагрузите вкладки Bitrix.</p>
+    </section>
+    <p>В 2.3.4 улучшено распознавание Teams: ссылки из описания, поля «Место» и приглашений Outlook Safe Links передаются в Windows-приложение.</p>
+    <p><a href="https://github.com/NIkoloj/betterbitrix/releases/download/v2.3.4/BetterBitrixPortable-0.3.4-win-x64.zip">Скачать приложение Windows 0.3.4</a> · <a href="windows/companion/BetterBitrixPortable.user.js">Обновить мост Tampermonkey</a></p>
   </main>
 </body>
 </html>
