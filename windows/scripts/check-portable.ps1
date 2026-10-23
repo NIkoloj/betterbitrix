@@ -1,6 +1,9 @@
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
-$archive = Join-Path $projectRoot '.build/BetterBitrixPortable-0.3.2-win-x64.zip'
+$version = ([xml](Get-Content -LiteralPath (Join-Path $projectRoot 'Directory.Build.props') -Raw)).Project.PropertyGroup.Version
+$archive = Join-Path $projectRoot ".build/BetterBitrixPortable-$version-win-x64.zip"
+$expectedHash = ((Get-Content -LiteralPath ($archive + '.sha256') -Raw) -split '\s+')[0]
+if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expectedHash) { throw 'Archive checksum differs from SHA256 manifest.' }
 $probe = [Net.Sockets.TcpClient]::new()
 try {
     if ($probe.ConnectAsync('127.0.0.1', 47653).Wait(500) -and $probe.Connected) { throw 'Close the existing local portable app before this isolated launch check.' }
@@ -10,6 +13,9 @@ $launchRoot = Join-Path $projectRoot ('.build/portable-launch-' + [guid]::NewGui
 Expand-Archive -LiteralPath $archive -DestinationPath $launchRoot
 $exePath = Join-Path $launchRoot 'BetterBitrix.Desktop.exe'
 if ((Get-ChildItem -LiteralPath $launchRoot -File).Count -ne 3) { throw 'Self-contained distribution must contain EXE, userscript and README only.' }
+$expectedScript = [IO.File]::ReadAllText((Join-Path $projectRoot 'companion/BetterBitrixPortable.user.js'))
+if ([IO.File]::ReadAllText((Join-Path $launchRoot 'BetterBitrixPortable.user.js')) -cne $expectedScript) { throw 'Packaged bridge differs from current source.' }
+if ((Get-Item -LiteralPath $exePath).VersionInfo.FileVersion -ne "$version.0") { throw 'EXE version differs from current release.' }
 $dataRoot = Join-Path $launchRoot 'data'
 New-Item -ItemType Directory -Path $dataRoot | Out-Null
 $cached = @{
@@ -48,6 +54,7 @@ for ($iteration = 1; $iteration -le 2; $iteration++) {
             catch { Start-Sleep -Milliseconds 200 }
         }
         if ($response.Content -notmatch '// ==UserScript==' -or $response.Content -notmatch 'GM_xmlhttpRequest') { throw 'Portable EXE did not serve its embedded bridge.' }
+        if ($response.Content -cne $expectedScript) { throw 'Embedded bridge differs from the packaged current bridge.' }
         $ownerId = (Get-NetTCPConnection -State Listen -LocalPort 47653).OwningProcess
         if ($ownerId -ne $child.Id) { throw 'Response came from a different process.' }
         if ($child.MainWindowHandle -ne [IntPtr]::Zero) { throw 'Background portable launch showed a window.' }

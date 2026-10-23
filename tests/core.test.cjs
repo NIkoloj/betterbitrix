@@ -97,6 +97,23 @@ test('HTML hyperlink targets work with quotes, escaped markup and numeric entiti
   '&#60;a href=&#34;https&#58;&#47;&#47;company.zoom.us/j/123?pwd=a&#38;b=2&#34;&#62;Подключиться&#60;/a&#62;'
  ]) assert.deepEqual(C.callLinks(description),[expected]);
 });
+test('current and classic Teams meeting URLs survive every supported description format',()=>{
+ for(const host of ['teams.microsoft.com','teams.live.com','teams.cloud.microsoft']) {
+  for(const path of ['/meet/123456789?p=AbCd_12-xy','/l/meetup-join/19%3ameeting_abc%40thread.v2/0?context=%7b%22Tid%22%3a%22fixture%22%7d&anon=true']) {
+   const url=`https://${host}${path}`,html=url.replaceAll('&','&amp;');
+   assert.equal(C.safeCallUrl(url),url);
+   for(const description of [url,`<a href="${html}">Присоединиться</a>`,`&lt;a href=&quot;${html.replaceAll('&','&amp;')}&quot;&gt;Teams&lt;/a&gt;`,`[URL=${html}]Teams[/URL]`]) {
+    assert.deepEqual(C.callLinks({DESCRIPTION:description,'~DESCRIPTION':description}),[url]);
+   }
+  }
+ }
+});
+test('Teams cloud support still rejects lookalike domains, credentials and unsafe protocols',()=>{
+ for(const url of ['https://teams.cloud.microsoft.evil.test/meet/123','https://evilteams.cloud.microsoft/meet/123','https://sub.teams.cloud.microsoft/meet/123','https://teams.cloud.microsoft@evil.test/meet/123','https://user:pass@teams.cloud.microsoft/meet/123','http://teams.cloud.microsoft/meet/123','msteams://teams.cloud.microsoft/meet/123']) {
+  assert.equal(C.safeCallUrl(url),null);
+  assert.deepEqual(C.callLinks(`<a href="${url}">https://teams.cloud.microsoft/meet/123</a>`),[]);
+ }
+});
 test('BBCode hyperlinks return their target without markup or label text',()=>{
  const zoom='https://zoom.us/j/123?pwd=abc',teams='https://teams.microsoft.com/l/meetup-join/abc?context=a&b=2';
  for(const description of [
@@ -148,7 +165,7 @@ test('recurring calendar dates accept localized and formatted occurrence dates',
 });
 test('compact UI keeps timer on the main button and exposes collapse control',()=>{
  const source=fs.readFileSync(require.resolve('../BetterBitrix.user.js'),'utf8');
- assert.match(source,/@name\s+BetterBitrix/);assert.match(source,/@version\s+2\.3\.2/);assert.match(source,/<span class="title">BetterBitrix<\/span>/);
+ assert.match(source,/@name\s+BetterBitrix/);assert.match(source,/@version\s+2\.3\.3/);assert.match(source,/<span class="title">BetterBitrix<\/span>/);
  assert.match(source,/@updateURL\s+https:\/\/nikoloj\.github\.io\/betterbitrix\/BetterBitrix\.meta\.js/);
  assert.match(source,/@downloadURL\s+https:\/\/nikoloj\.github\.io\/betterbitrix\/BetterBitrix\.user\.js/);
  assert.match(source,/id="collapse"/);assert.match(source,/ui\.collapse\.onclick/);

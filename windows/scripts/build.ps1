@@ -40,10 +40,13 @@ Get-ChildItem -LiteralPath (Join-Path $dist 'Desktop') -File | ForEach-Object {
 }
 Copy-Item -LiteralPath (Join-Path $projectRoot 'companion/BetterBitrixPortable.user.js') -Destination $portableOut -Force
 Copy-Item -LiteralPath (Join-Path $projectRoot 'README.md') -Destination (Join-Path $portableOut 'README.md') -Force
-$archivePath = Join-Path $projectRoot '.build/BetterBitrixPortable-0.3.2-win-x64.zip'
+$version = ([xml](Get-Content -LiteralPath (Join-Path $projectRoot 'Directory.Build.props') -Raw)).Project.PropertyGroup.Version
+$archivePath = Join-Path $projectRoot ".build/BetterBitrixPortable-$version-win-x64.zip"
 # The distributable contains no pairing tokens, cached user state, or legacy installer.
 $portableFiles = $publishedFiles + @('BetterBitrixPortable.user.js', 'README.md')
 $archiveInputs = $portableFiles | ForEach-Object { Join-Path $portableOut $_ }
 Compress-Archive -LiteralPath $archiveInputs -DestinationPath $archivePath -Force
+$hash = (Get-FileHash -LiteralPath $archivePath -Algorithm SHA256).Hash.ToLowerInvariant()
+Set-Content -LiteralPath ($archivePath + '.sha256') -Value ($hash + '  ' + [IO.Path]::GetFileName($archivePath)) -Encoding ascii
 Write-Output "Portable ready: $portableOut/BetterBitrix.Desktop.exe"
 Write-Output "Archive ready: $archivePath"

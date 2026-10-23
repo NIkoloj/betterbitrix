@@ -3,7 +3,7 @@
     <TargetFramework>net10.0-windows</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <Version>0.3.2</Version>
+    <Version>0.3.3</Version>
     <RuntimeFrameworkVersion>10.0.13</RuntimeFrameworkVersion>
     <TargetLatestRuntimePatch>true</TargetLatestRuntimePatch>
     <RestoreIgnoreFailedSources>true</RestoreIgnoreFailedSources>

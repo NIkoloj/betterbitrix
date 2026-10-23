@@ -1,5 +1,5 @@
 BetterBitrix userscript
-Version: 2.3.2
+Version: 2.3.3
 
 Included:
 - BetterBitrix name in Tampermonkey and the main panel header;
@@ -13,6 +13,7 @@ Included:
 - per-user day boundary follows browser or selected IANA time zone;
 - calendar icon lists today's accepted events containing Zoom or Teams links in DESCRIPTION;
 - call links are extracted from HTML hyperlinks, escaped HTML and BBCode, including ~DESCRIPTION;
+- Teams URLs support teams.microsoft.com, teams.live.com and teams.cloud.microsoft, preserving join parameters;
 - per-user setting can show all today's calendar events, with disabled rows for events without a supported link;
 - daily-call icon opens a locally configured Zoom or Teams URL;
 - meeting time is copied from Bitrix DATE_FROM/DATE_TO without timezone conversion;

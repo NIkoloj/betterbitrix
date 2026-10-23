@@ -33,6 +33,17 @@ test('desktop snapshot contains no profile, cookies or CSRF and does not mount/c
   assert.equal(f.window.__b24EightHoursInstalled,undefined);
   assert.equal(f.sandbox.document.body,null);
 });
+test('Windows bridge includes Teams cloud meetings and saves the same daily URL',async()=>{
+ const f=fixture(),url='https://teams.cloud.microsoft/meet/123456789?p=AbCd_12-xy';
+ f.window.BX.rest={callMethod(method,params,done){done({data:()=>method==='calendar.user.settings.get' ? {timezoneName:'Europe/Moscow'} : [
+  {NAME:'Teams cloud',DATE_FROM:C.day()+' 10:00:00',DESCRIPTION:`[url=${url}]Присоединиться[/url]`}
+ ]});}};
+ const state=await f.execute('meetings');
+ assert.equal(state.meetings.length,1);assert.equal(state.meetings[0].url,url);
+ assert.equal(state.meetings[0].provider,'Teams');
+ const settings=await f.execute('settings',{dailyUrl:url,timeZone:'Europe/Moscow'});
+ assert.equal(settings.dailyUrl,url);
+});
 test('desktop timer survives runtime recreation and records exact elapsed duration',async()=>{
   const f=fixture();await f.execute('start');f.advance(3600000);await f.execute('pause');
   f.advance(1800000);await f.execute('pause');f.advance(60000);
@@ -122,5 +133,5 @@ for(const order of [['browser','desktop'],['desktop','browser']]) {
 }
   test('desktop runtime includes the current browser calendar core',()=>{
     const browser=fs.readFileSync(path.join(__dirname,'../../BetterBitrix.user.js'),'utf8');
-    assert.ok(runtimeSource.includes(browser.slice(browser.indexOf('  function calendarClockInfo'),browser.indexOf('  const Core='))));
+    assert.ok(runtimeSource.includes(browser.slice(browser.indexOf('  function decodeLinkEntities'),browser.indexOf('  const Core='))));
 });

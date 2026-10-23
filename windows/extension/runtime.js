@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BetterBitrix
 // @namespace    local.bitrix-eight-hours
-// @version      2.3.2
+// @version      2.3.3
 // @description  Рабочий таймер, быстрые 8 часов и ссылки на созвоны из календаря Bitrix.
 // @homepageURL  https://nikoloj.github.io/betterbitrix/
 // @supportURL   https://github.com/NIkoloj/betterbitrix/issues
@@ -254,7 +254,7 @@
     let url; try { url=new URL(decoded); } catch { return null; }
     if(url.protocol!=='https:' || url.username || url.password) return null;
     const host=url.hostname.toLowerCase();
-    if(host==='zoom.us' || host.endsWith('.zoom.us') || host==='teams.microsoft.com' || host==='teams.live.com') return url.href;
+    if(host==='zoom.us' || host.endsWith('.zoom.us') || host==='teams.microsoft.com' || host==='teams.live.com' || host==='teams.cloud.microsoft') return url.href;
     return null;
   }
   function callLinks(value) {

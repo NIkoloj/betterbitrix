@@ -29,6 +29,7 @@ async Task<HttpResponseMessage> Post(string path, object payload, string? token 
 void Assert(bool condition, string error) { if (!condition) throw new Exception(error); }
 var script = await http.GetStringAsync("/BetterBitrixPortable.user.js");
 Assert(script.Contains("// ==UserScript==") && script.Contains("GM_xmlhttpRequest") && !script.Contains("secret-csrf"), "Embedded bridge script missing");
+Assert(script == File.ReadAllText(Path.Combine(root, "companion", "BetterBitrixPortable.user.js")), "Embedded bridge differs from current generated source");
 Assert((await Post("/pair", new { nonce = "wrong", state })).StatusCode == HttpStatusCode.Unauthorized, "Unsolicited pairing accepted");
 Assert((await Post("/exchange", new { state, clientId = new string('a', 32) })).StatusCode == HttpStatusCode.Unauthorized, "Unauthenticated data accepted");
 var pairingUrl = bridge.BeginPairing();var nonce = pairingUrl[(pairingUrl.LastIndexOf('.') + 1)..];
@@ -197,7 +198,8 @@ render.SetApartmentState(ApartmentState.STA);render.Start();render.Join();
 if (renderError is not null) throw renderError;
 Console.WriteLine("PASS no floating window; five native tray icons registered/removed, full-time tooltip, light/dark artwork and portable settings layout");
 
-using var archive = System.IO.Compression.ZipFile.OpenRead(Path.Combine(root,".build","BetterBitrixPortable-0.3.2-win-x64.zip"));
+var releaseVersion = System.Xml.Linq.XDocument.Load(Path.Combine(root, "Directory.Build.props")).Descendants("Version").Single().Value;
+using var archive = System.IO.Compression.ZipFile.OpenRead(Path.Combine(root,".build",$"BetterBitrixPortable-{releaseVersion}-win-x64.zip"));
 Assert(archive.Entries.Any(entry => entry.FullName == "BetterBitrix.Desktop.exe"), "Portable executable absent");
 Assert(archive.Entries.Any(entry => entry.FullName == "BetterBitrixPortable.user.js"), "Companion script absent");
 Assert(!archive.Entries.Any(entry => entry.FullName.Contains("Setup") || entry.FullName.Contains("NativeHost") || entry.FullName.Contains("session.json") || entry.FullName.StartsWith("data/") || entry.FullName.Contains("install.ps1")), "Portable package includes installer/private data");

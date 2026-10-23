@@ -65,6 +65,19 @@ test('show-all preference survives reload and is stored separately for each acco
  assert.equal(runtime(s).__testRuntime.showAllMeetings(),true);
  assert.equal(runtime(s,999).__testRuntime.showAllMeetings(),false);
 });
+test('Teams cloud calendar entries render an enabled action with the complete join URL',async()=>{
+ const r=runtime(shared()),url='https://teams.cloud.microsoft/meet/123456789?p=AbCd_12-xy';
+ const ui=meetingsUI(r),opened=[];
+ r.window.open=(...args)=>opened.push(args);
+ r.window.BX.rest={callMethod(method,params,done){done({data:()=>method==='calendar.user.settings.get' ? {timezoneName:'Europe/Moscow'} : [
+  {NAME:'Teams cloud',DATE_FROM:C.day()+' 10:00:00',DESCRIPTION:`<a href="${url}">Присоединиться</a>`}
+ ]});}};
+ await r.__testRuntime.loadMeetings();r.__testRuntime.renderMeetings();
+ assert.equal(ui.meetingsList.children.length,1);
+ const button=ui.meetingsList.children[0];
+ assert.equal(button.disabled,false);button.onclick();
+ assert.deepEqual(opened,[[url,'_blank','noopener']]);
+});
 
 test('weekly occurrences keep appearing after the first date despite stale series timestamps',async()=>{
  const first='2026-10-05',stamp=Date.parse(first+'T07:00:00Z')/1000;

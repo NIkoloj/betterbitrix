@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BetterBitrix Portable — мост
 // @namespace    local.betterbitrix-portable
-// @version      0.3.2
+// @version      0.3.3
 // @homepageURL  https://nikoloj.github.io/betterbitrix/
 // @updateURL    https://nikoloj.github.io/betterbitrix/windows/companion/BetterBitrixPortable.meta.js
 // @downloadURL  https://nikoloj.github.io/betterbitrix/windows/companion/BetterBitrixPortable.user.js
@@ -260,7 +260,7 @@ const window=unsafeWindow, XMLHttpRequest=window.XMLHttpRequest, navigator=windo
     let url; try { url=new URL(decoded); } catch { return null; }
     if(url.protocol!=='https:' || url.username || url.password) return null;
     const host=url.hostname.toLowerCase();
-    if(host==='zoom.us' || host.endsWith('.zoom.us') || host==='teams.microsoft.com' || host==='teams.live.com') return url.href;
+    if(host==='zoom.us' || host.endsWith('.zoom.us') || host==='teams.microsoft.com' || host==='teams.live.com' || host==='teams.cloud.microsoft') return url.href;
     return null;
   }
   function callLinks(value) {
